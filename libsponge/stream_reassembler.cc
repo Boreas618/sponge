@@ -29,9 +29,12 @@ void StreamReassembler::push_substring(const std::string &data, const uint64_t i
         data_peeled = data_peeled.substr(_index_assembled - index);
     }
 
-    if (valid && end_idx > _index_assembled + _output.remaining_capacity())
+    std::cout << _index_assembled << data_peeled << std::endl;
+
+    if (valid && end_idx > _index_assembled + _output.remaining_capacity()) {
         data_peeled = data_peeled.substr(0, _index_assembled + _output.remaining_capacity() - start_idx);
-    else if (eof)
+        end_idx = _index_assembled + _output.remaining_capacity();
+    } else if (eof)
         _eof = true;
 
     for (auto it = _auxillary.begin(); it != _auxillary.end(); it++) {

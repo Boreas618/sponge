@@ -10,7 +10,7 @@ using namespace std;
 
 int main() {
     try {
-        /*{
+        {
             ReassemblerTestHarness test{2};
 
             test.execute(SubmitSegment{"ab", 0});
@@ -24,7 +24,7 @@ int main() {
             test.execute(SubmitSegment{"ef", 4});
             test.execute(BytesAssembled(6));
             test.execute(BytesAvailable("ef"));
-        }*/
+        }
 
         {
             ReassemblerTestHarness test{2};
@@ -44,7 +44,7 @@ int main() {
             test.execute(BytesAvailable("cd"));
         }
 
-        /*{
+        {
             ReassemblerTestHarness test{2};
 
             test.execute(SubmitSegment{"bX", 1});
@@ -105,7 +105,7 @@ int main() {
                 test.execute(BytesAssembled(i + 3));
                 test.execute(BytesAvailable(segment.substr(0, 3)));
             }
-        }*/
+        }
 
     } catch (const exception &e) {
         cerr << "Exception: " << e.what() << endl;

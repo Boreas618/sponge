@@ -6,6 +6,9 @@
         "list": "cpp",
         "chrono": "cpp",
         "string": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "array": "cpp",
+        "span": "cpp",
+        "string_view": "cpp"
     }
 }
