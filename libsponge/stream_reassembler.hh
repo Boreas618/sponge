@@ -4,16 +4,26 @@
 #include "byte_stream.hh"
 
 #include <cstdint>
+#include <list>
 #include <string>
+
+struct BytesInterval {
+    size_t start;
+    size_t end;
+    std::string data;
+    BytesInterval(const size_t s, const size_t e) : start(s), end(e), data() {}
+};
 
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
 class StreamReassembler {
   private:
-    // Your code here -- add private members as necessary.
-
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
+    std::list<BytesInterval> _auxillary;
+    uint64_t _index_assembled;
+    size_t _unassembled;
+    bool _eof;
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.

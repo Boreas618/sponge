@@ -62,7 +62,6 @@ void ByteStream::end_input() {
         _error = true;
         return;
     }
-    buffer[write_idx % capacity] = -1;
     _input_ended = true;
 }
 
@@ -72,7 +71,7 @@ size_t ByteStream::buffer_size() const { return write_idx - read_idx; }
 
 bool ByteStream::buffer_empty() const { return write_idx == read_idx; }
 
-bool ByteStream::eof() const { return buffer[read_idx % capacity] == -1; }
+bool ByteStream::eof() const { return _input_ended && read_idx == write_idx; }
 
 size_t ByteStream::bytes_written() const { return write_idx; }
 
