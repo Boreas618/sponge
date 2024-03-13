@@ -20,28 +20,33 @@ void StreamReassembler::push_substring(const std::string &data, const uint64_t i
     std::vector<decltype(_auxillary.begin())> target_replace;
     bool valid = true;
 
+    // Invalid data: empty, has been assembled, no capacity.
     if (data.size() == 0 || end_idx <= _index_assembled ||
         _index_assembled + _output.remaining_capacity() - start_idx <= 0)
         valid = false;
 
+    // Part of the data has been assembled.
     if (valid && index < _index_assembled) {
         start_idx = _index_assembled;
         data_peeled = data_peeled.substr(_index_assembled - index);
     }
 
-    std::cout << _index_assembled << data_peeled << std::endl;
-
+    // Part of the data should be dropped because there isn't enough space to hold it in the buffer.
     if (valid && end_idx > _index_assembled + _output.remaining_capacity()) {
         data_peeled = data_peeled.substr(0, _index_assembled + _output.remaining_capacity() - start_idx);
         end_idx = _index_assembled + _output.remaining_capacity();
     } else if (eof)
         _eof = true;
 
+    // Peel the data to fit it in the auxillary vector.
     for (auto it = _auxillary.begin(); it != _auxillary.end(); it++) {
+        // The data is a subset of another interval held in the auxillary store.
         if (start_idx >= (*it).start && end_idx <= (*it).end) {
             valid = false;
             break;
         }
+
+        // Have intersections.
         if (start_idx <= (*it).end && (*it).start <= start_idx) {
             data_peeled = data_peeled.substr((*it).end - start_idx);
             start_idx += (*it).end - start_idx;
@@ -50,12 +55,17 @@ void StreamReassembler::push_substring(const std::string &data, const uint64_t i
             data_peeled = data_peeled.substr(0, data_peeled.size() - (end_idx - (*it).start));
             end_idx -= (end_idx - (*it).start);
         }
+
+        // Find a hole to fit the data in.
         if ((*it).end > start_idx && target_insert == _auxillary.end())
             target_insert = it;
+
+        // The data covers an interval included previously.
         if ((*it).start >= start_idx && (*it).end <= end_idx)
             target_replace.push_back(it);
     }
 
+    // If it's a valid data, insert it into the auxillary vector.
     BytesInterval bi(start_idx, end_idx);
     if (valid) {
         bi.data = data_peeled;
