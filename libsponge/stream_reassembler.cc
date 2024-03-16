@@ -2,10 +2,6 @@
 
 #include <iostream>
 
-// Dummy implementation of a stream reassembler.
-
-using namespace std;
-
 StreamReassembler::StreamReassembler(const size_t capacity)
     : _output(capacity), _capacity(capacity), _auxillary(), _index_assembled(0), _unassembled(0), _eof(false) {}
 
@@ -80,9 +76,10 @@ void StreamReassembler::push_substring(const std::string &data, const uint64_t i
 
     // Stage the auxillary substrings to the byte stream.
     while (_auxillary.size() && _index_assembled == _auxillary.front().start) {
-        _output.write(_auxillary.front().data);
-        _unassembled -= _auxillary.front().data.size();
-        _index_assembled = _auxillary.front().end;
+        BytesInterval &cand = _auxillary.front();
+        _output.write(cand.data);
+        _unassembled -= cand.data.size();
+        _index_assembled = cand.end;
         _auxillary.pop_front();
     }
 
@@ -93,4 +90,4 @@ void StreamReassembler::push_substring(const std::string &data, const uint64_t i
 
 size_t StreamReassembler::unassembled_bytes() const { return _unassembled; }
 
-bool StreamReassembler::empty() const { return {}; }
+bool StreamReassembler::empty() const { return _unassembled == 0; }

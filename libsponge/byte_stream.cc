@@ -2,8 +2,6 @@
 
 #include <vector>
 
-// Dummy implementation of a flow-controlled in-memory byte stream.
-
 ByteStream::ByteStream(const size_t cap)
     : capacity(cap), buffer(), read_idx(0), write_idx(0), _input_ended(false), _output_ended(false), _error(false) {
     buffer.resize(cap);

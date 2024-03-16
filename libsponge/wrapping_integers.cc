@@ -1,7 +1,5 @@
 #include "wrapping_integers.hh"
 
-using namespace std;
-
 //! Transform an "absolute" 64-bit sequence number (zero-indexed) into a WrappingInt32
 //! \param n The input absolute 64-bit sequence number
 //! \param isn The initial sequence number
