@@ -1,22 +1,11 @@
 #include "wrapping_integers.hh"
 
-// Dummy implementation of a 32-bit wrapping integer
-
-// For Lab 2, please replace with a real implementation that passes the
-// automated checks run by `make check_lab2`.
-
-template <typename... Targs>
-void DUMMY_CODE(Targs &&... /* unused */) {}
-
 using namespace std;
 
 //! Transform an "absolute" 64-bit sequence number (zero-indexed) into a WrappingInt32
 //! \param n The input absolute 64-bit sequence number
 //! \param isn The initial sequence number
-WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
-    DUMMY_CODE(n, isn);
-    return WrappingInt32{0};
-}
+WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) { return isn + uint32_t(n); }
 
 //! Transform a WrappingInt32 into an "absolute" 64-bit sequence number (zero-indexed)
 //! \param n The relative sequence number
@@ -29,6 +18,26 @@ WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
 //! and the other stream runs from the remote TCPSender to the local TCPReceiver and
 //! has a different ISN.
 uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
-    DUMMY_CODE(n, isn, checkpoint);
-    return {};
+    uint32_t offset;
+    if (n.raw_value() < isn.raw_value())
+        offset = UINT32_MAX + 1 - (isn.raw_value() - n.raw_value());
+    else
+        offset = n.raw_value() - isn.raw_value();
+
+    uint64_t offset_cast = static_cast<uint64_t>(offset);
+
+    uint64_t ckpt_rounded_down = (checkpoint) & 0xfffffffe00000000;
+    uint64_t cand_0;
+    uint64_t cand_1 = ckpt_rounded_down + offset_cast;
+
+    if (checkpoint < static_cast<uint64_t>((1 << 31)) + offset_cast)
+        return offset_cast;
+    while (cand_1 <= checkpoint)
+        cand_1 += (uint64_t)UINT32_MAX + 1;
+    cand_0 = cand_1 - ((uint64_t)UINT32_MAX + 1);
+
+    if (checkpoint - cand_0 <= cand_1 - checkpoint)
+        return cand_0;
+    else
+        return cand_1;
 }
