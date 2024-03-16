@@ -26,11 +26,14 @@ uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
 
     uint64_t offset_cast = static_cast<uint64_t>(offset);
 
+    // Since 64-bit absolute offsets wrap around at 2^32, the true offset can be expressed as k * 2^32 + offset, where k
+    // is determined by the checkpoint as described above.
+
     uint64_t ckpt_rounded_down = (checkpoint) & 0xfffffffe00000000;
     uint64_t cand_0;
     uint64_t cand_1 = ckpt_rounded_down + offset_cast;
 
-    if (checkpoint < static_cast<uint64_t>((1 << 31)) + offset_cast)
+    if (checkpoint < offset_cast)
         return offset_cast;
     while (cand_1 <= checkpoint)
         cand_1 += (uint64_t)UINT32_MAX + 1;
