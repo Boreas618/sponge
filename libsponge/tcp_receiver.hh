@@ -8,7 +8,7 @@
 
 #include <optional>
 
-enum ReceiverState { LISTEN, SYN_RECV, FIN_RECV, ERROR };
+enum ReceiverState { LISTEN, SYN_RECV, FIN_RECV, RERROR };
 
 //! \brief The "receiver" part of a TCP implementation.
 

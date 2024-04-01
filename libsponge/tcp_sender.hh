@@ -9,6 +9,8 @@
 #include <functional>
 #include <queue>
 
+enum SenderState { CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FIN_ACKED, SERROR };
+
 //! \brief The "sender" part of a TCP implementation.
 
 //! Accepts a ByteStream, divides it up into segments and sends the
@@ -23,14 +25,32 @@ class TCPSender {
     //! outbound queue of segments that the TCPSender wants sent
     std::queue<TCPSegment> _segments_out{};
 
+    std::vector<TCPSegment> _segments_outstanding{};
+
     //! retransmission timer for the connection
     unsigned int _initial_retransmission_timeout;
+
+    unsigned int _current_retransmission_timeout;
+
+    unsigned int _retransmission_times{0};
+
+    bool _unlimited_retransmission{false};
 
     //! outgoing stream of bytes that have not yet been sent
     ByteStream _stream;
 
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
+
+    uint64_t _window_right{1};
+
+    size_t _timer_million_seconds{0};
+
+    bool _is_timer_started{false};
+
+    uint64_t _bytes_acked{0};
+
+    SenderState _state{CLOSED};
 
   public:
     //! Initialize a TCPSender
@@ -58,6 +78,12 @@ class TCPSender {
 
     //! \brief Notifies the TCPSender of the passage of time
     void tick(const size_t ms_since_last_tick);
+
+    void _send_segment(bool syn, bool fin);
+
+    void _handle_closed();
+
+    void _handle_transmission();
     //!@}
 
     //! \name Accessors
@@ -66,7 +92,7 @@ class TCPSender {
     //! \brief How many sequence numbers are occupied by segments sent but not yet acknowledged?
     //! \note count is in "sequence space," i.e. SYN and FIN each count for one byte
     //! (see TCPSegment::length_in_sequence_space())
-    size_t bytes_in_flight() const;
+    uint64_t bytes_in_flight() const;
 
     //! \brief Number of consecutive retransmissions that have occurred in a row
     unsigned int consecutive_retransmissions() const;

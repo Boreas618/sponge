@@ -54,6 +54,12 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "typeinfo": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "atomic": "cpp",
+        "memory": "cpp",
+        "queue": "cpp",
+        "system_error": "cpp",
+        "utility": "cpp",
+        "exception": "cpp"
     }
 }
