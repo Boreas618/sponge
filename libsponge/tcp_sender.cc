@@ -27,25 +27,23 @@ void TCPSender::_send_segment(bool syn, bool fin) {
     seg.header().syn = syn;
     seg.header().fin = fin;
 
-    // Assign the payload.
-    // TODO: the sender should handle the case where SYN segment needs to be sent but receive window size is zero.
-    // For now, we simply assume that this case cannot happend.
+    // Setting the payload. It's important to note that the SYN segment isn't used to carry payload in this context.
+    // While the initial SYN segment might theoretically include data from the connection initiator (as per RFC 793,
+    // which outlines TCP specifications), TCP doesn't allow this data to be passed to the application until the
+    // three-way handshake is complete. Yet, TCP Fast Open (TFO) does support carrying data in the SYN segment.
     if (!syn) {
-        size_t payload_len =
-            (_window_right - _next_seqno == 0)
-                ? 1
-                : min(TCPConfig::MAX_PAYLOAD_SIZE,
-                      min(static_cast<size_t>(_window_right - _next_seqno), stream_in().buffer_size()));
+        size_t remain_space = static_cast<size_t>(_window_right - _next_seqno);
+        size_t remain_bytes = stream_in().buffer_size();
+        size_t payload_len = _should_probe() ? 1 : std::min({TCPConfig::MAX_PAYLOAD_SIZE, remain_space, remain_bytes});
         seg.payload() = stream_in().read(payload_len);
     }
 
-    _next_seqno += seg.length_in_sequence_space();
-
-    if (!_is_timer_started)
-        _is_timer_started = true;
-
     _segments_out.push(seg);
     _segments_outstanding.push_back(seg);
+
+    // Update the seqno and timer switch.
+    _next_seqno += seg.length_in_sequence_space();
+    (!_is_timer_started) && (_is_timer_started = true);
 }
 
 void TCPSender::_handle_closed() {
@@ -53,19 +51,15 @@ void TCPSender::_handle_closed() {
         _state = SERROR;
         return;
     }
-    bool is_fin = stream_in().input_ended() &&
-                  next_seqno_absolute() + stream_in().buffer_size() == stream_in().bytes_written() + 1;
-    _send_segment(true, is_fin);
+    _send_segment(true, _is_fin());
     _state = SYN_SENT;
 }
 
 void TCPSender::_handle_transmission() {
-    if (_bytes_acked == _window_right && _next_seqno == _bytes_acked) {
+    if (_should_probe() && !_is_probing()) {
         bool is_fin = stream_in().eof();
         _send_segment(false, is_fin);
-        if (is_fin)
-            _state = FIN_SENT;
-        return;
+        (is_fin) && (_state = FIN_SENT);
     }
 
     while (_next_seqno < _window_right) {
@@ -78,19 +72,34 @@ void TCPSender::_handle_transmission() {
             break;
         }
 
-        // A subtle point here: Don't send FIN by itself if the window is full
-        // For instance, consider the bytes "ABC<EOF>" and a window size of 3. This segment won't be marked as 1 even it
-        // statifies the first two conditions below.
-        bool is_fin = stream_in().input_ended() &&
-                      next_seqno_absolute() + stream_in().buffer_size() == stream_in().bytes_written() + 1 &&
-                      next_seqno_absolute() + stream_in().buffer_size() < _window_right;
-
+        bool is_fin = _is_fin();
         _send_segment(false, is_fin);
         if (is_fin) {
             _state = FIN_SENT;
             break;
         }
     }
+}
+
+bool TCPSender::_should_probe() {
+    // When the receiver acknowledges with a window size of 0, it indicates that the receiver's buffer is full and
+    // cannot accept more segments at the moment. To determine when the receiver has available space again, we continue
+    // to send probing segments containing a one-byte payload.
+    return _bytes_acked == _window_right;
+}
+
+bool TCPSender::_is_probing() {
+    // The probing segment is sent. While the sender and receiver swap probing segments, the RTO won't double.
+    return _next_seqno == _window_right + 1;
+}
+
+bool TCPSender::_is_fin() {
+    // A subtle point here: Don't send FIN by itself if the window is full
+    // For instance, consider the bytes "ABC<EOF>" and a window size of 3. This segment won't be marked as FIN even it
+    // statifies the first two conditions below.
+    return stream_in().input_ended() &&
+           next_seqno_absolute() + stream_in().buffer_size() == stream_in().bytes_written() + 1 &&
+           next_seqno_absolute() + stream_in().buffer_size() < _window_right;
 }
 
 void TCPSender::fill_window() {
@@ -121,10 +130,8 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         uint64_t abs_outstanding_seg_right =
             unwrap((*it).header().seqno + (*it).length_in_sequence_space(), _isn, _bytes_acked);
         if (abs_outstanding_seg_right <= abs_ackno) {
-            if ((*it).header().syn)
-                _state = SYN_ACKED;
-            if ((*it).header().fin)
-                _state = FIN_ACKED;
+            ((*it).header().syn) && (_state = SYN_ACKED);
+            ((*it).header().fin) && (_state = FIN_ACKED);
             _segments_outstanding.erase(it);
         }
     }
@@ -146,11 +153,12 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
         return;
 
     _timer_million_seconds += ms_since_last_tick;
+
     if (_timer_million_seconds >= _current_retransmission_timeout) {
         _timer_million_seconds = 0;
         _retransmission_times++;
         _segments_out.push(_segments_outstanding.front());
-        if (_retransmission_times <= TCPConfig::MAX_RETX_ATTEMPTS && !((_next_seqno == _window_right + 1) && _next_seqno == _bytes_acked + 1))
+        if (_retransmission_times <= TCPConfig::MAX_RETX_ATTEMPTS && !_is_probing())
             _current_retransmission_timeout *= 2;
     }
 }

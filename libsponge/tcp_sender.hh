@@ -86,6 +86,12 @@ class TCPSender {
     void _handle_closed();
 
     void _handle_transmission();
+
+    bool _should_probe();
+
+    bool _is_probing();
+
+    bool _is_fin();
     //!@}
 
     //! \name Accessors
