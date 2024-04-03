@@ -9,7 +9,7 @@
 #include <functional>
 #include <queue>
 
-enum SenderState { CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FIN_ACKED, SERROR };
+enum SenderState { CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FIN_ACKED, SERROR};
 
 //! \brief The "sender" part of a TCP implementation.
 
@@ -51,6 +51,8 @@ class TCPSender {
     uint64_t _bytes_acked{0};
 
     SenderState _state{CLOSED};
+
+    bool _is_zero_window{false};
 
   public:
     //! Initialize a TCPSender

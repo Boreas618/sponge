@@ -5,14 +5,6 @@
 #include <iostream>
 #include <random>
 
-// Dummy implementation of a TCP sender
-
-// For Lab 3, please replace with a real implementation that passes the
-// automated checks run by `make check_lab3`.
-
-template <typename... Targs>
-void DUMMY_CODE(Targs &&.../* unused */) {}
-
 using namespace std;
 
 //! \param[in] capacity the capacity of the outgoing byte stream
@@ -68,7 +60,14 @@ void TCPSender::_handle_closed() {
 }
 
 void TCPSender::_handle_transmission() {
-    // std::cout <<  _next_seqno << _window_right << std::endl;
+    if (_bytes_acked == _window_right && _next_seqno == _bytes_acked) {
+        bool is_fin = stream_in().eof();
+        _send_segment(false, is_fin);
+        if (is_fin)
+            _state = FIN_SENT;
+        return;
+    }
+
     while (_next_seqno < _window_right) {
         if (!stream_in().input_ended() && stream_in().buffer_size() == 0)
             break;
@@ -92,9 +91,6 @@ void TCPSender::_handle_transmission() {
             break;
         }
     }
-
-    if (_next_seqno == _window_right)
-        std::cout << _state << std::endl;
 }
 
 void TCPSender::fill_window() {
@@ -138,7 +134,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _is_timer_started = false;
 
     // The TCPSender should fill the window again if new space has opened up.
-    _window_right = unwrap(ackno, _isn, _window_right) + static_cast<uint64_t>(window_size);
+    _window_right = _bytes_acked + static_cast<uint64_t>(window_size);
 
     if (_window_right > _next_seqno)
         fill_window();
@@ -151,15 +147,11 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 
     _timer_million_seconds += ms_since_last_tick;
     if (_timer_million_seconds >= _current_retransmission_timeout) {
-        if (_retransmission_times <= TCPConfig::MAX_RETX_ATTEMPTS) {
-            _timer_million_seconds = 0;
+        _timer_million_seconds = 0;
+        _retransmission_times++;
+        _segments_out.push(_segments_outstanding.front());
+        if (_retransmission_times <= TCPConfig::MAX_RETX_ATTEMPTS && !((_next_seqno == _window_right + 1) && _next_seqno == _bytes_acked + 1))
             _current_retransmission_timeout *= 2;
-            _retransmission_times++;
-            _segments_out.push(_segments_outstanding.front());
-        } else {
-            // The number of consecutive retransmissions exceeds MAX_RETX_ATTEMPTS.
-            // The connection should be aborted.
-        }
     }
 }
 
